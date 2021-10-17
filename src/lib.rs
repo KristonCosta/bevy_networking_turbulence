@@ -28,12 +28,13 @@ pub use naia_server_socket::find_my_ip_address;
 use turbulence::{
     buffer::BufferPacketPool,
     message_channels::ChannelMessage,
-    packet::{Packet as PoolPacket, PacketPool, MAX_PACKET_LEN},
+    packet::{Packet as PoolPacket, PacketPool},
     packet_multiplexer::{IncomingTrySendError, MuxPacketPool},
 };
 pub use turbulence::{
     message_channels::{MessageChannelMode, MessageChannelSettings},
     reliable_channel::Settings as ReliableChannelSettings,
+    unreliable_channel::Settings as UnreliableChannelSettings,
 };
 
 mod channels;
@@ -194,7 +195,7 @@ impl NetworkResource {
     {
         let runtime = TaskPoolRuntime::new(task_pool.clone());
         let packet_pool =
-            MuxPacketPool::new(BufferPacketPool::new(SimpleBufferPool(MAX_PACKET_LEN)));
+            MuxPacketPool::new(BufferPacketPool::new(SimpleBufferPool(1400)));
 
         NetworkResource {
             task_pool,
