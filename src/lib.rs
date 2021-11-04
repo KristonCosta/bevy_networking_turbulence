@@ -1,12 +1,12 @@
 use bevy::{
-    app::{AppBuilder, Events, Plugin, CoreStage},
-    ecs::prelude::*,
-    tasks::{IoTaskPool, TaskPool, Task},
+    app::{App, CoreStage, Events, Plugin},
     core::FixedTimestep,
+    ecs::prelude::*,
+    tasks::{IoTaskPool, Task, TaskPool},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crossbeam_channel::{unbounded, Receiver, Sender, SendError as CrossbeamSendError};
+use crossbeam_channel::{unbounded, Receiver, SendError as CrossbeamSendError, Sender};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::RwLock;
 use std::{
@@ -70,9 +70,9 @@ pub struct NetworkingPlugin {
 }
 
 impl Plugin for NetworkingPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         let task_pool = app
-            .world()
+            .world
             .get_resource::<IoTaskPool>()
             .expect("`IoTaskPool` resource not found.")
             .0
@@ -89,10 +89,15 @@ impl Plugin for NetworkingPlugin {
         .add_system(receive_packets.system());
         if self.idle_timeout_ms.is_some() || self.auto_heartbeat_ms.is_some() {
             // heartbeats and timeouts checking/sending only runs infrequently:
-            app.add_stage_after(CoreStage::Update, SendHeartbeatsStage,
+            app.add_stage_after(
+                CoreStage::Update,
+                SendHeartbeatsStage,
                 SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(self.heartbeats_and_timeouts_timestep_in_seconds.unwrap_or(0.5)))
-                .with_system(heartbeats_and_timeouts.system())
+                    .with_run_criteria(FixedTimestep::step(
+                        self.heartbeats_and_timeouts_timestep_in_seconds
+                            .unwrap_or(0.5),
+                    ))
+                    .with_system(heartbeats_and_timeouts.system()),
             );
         }
     }
@@ -186,16 +191,15 @@ unsafe impl Send for NetworkResource {}
 unsafe impl Sync for NetworkResource {}
 
 impl NetworkResource {
-    pub fn new( task_pool: TaskPool,
-                link_conditioner: Option<LinkConditionerConfig>,
-                message_flushing_strategy: MessageFlushingStrategy,
-                idle_timeout_ms: Option<usize>,
-                auto_heartbeat_ms: Option<usize>,
-            ) -> Self
-    {
+    pub fn new(
+        task_pool: TaskPool,
+        link_conditioner: Option<LinkConditionerConfig>,
+        message_flushing_strategy: MessageFlushingStrategy,
+        idle_timeout_ms: Option<usize>,
+        auto_heartbeat_ms: Option<usize>,
+    ) -> Self {
         let runtime = TaskPoolRuntime::new(task_pool.clone());
-        let packet_pool =
-            MuxPacketPool::new(BufferPacketPool::new(SimpleBufferPool(1400)));
+        let packet_pool = MuxPacketPool::new(BufferPacketPool::new(SimpleBufferPool(1400)));
 
         NetworkResource {
             task_pool,
@@ -454,7 +458,10 @@ impl NetworkResource {
 
 // check every connection for timeouts.
 // ie. check how long since we last saw a packet.
-pub fn heartbeats_and_timeouts(mut net: ResMut<NetworkResource>, mut network_events: ResMut<Events<NetworkEvent>>) {
+pub fn heartbeats_and_timeouts(
+    mut net: ResMut<NetworkResource>,
+    mut network_events: ResMut<Events<NetworkEvent>>,
+) {
     let mut silent_handles = Vec::new();
     let mut needs_hb_handles = Vec::new();
     let idle_limit = net.idle_timeout_ms;
